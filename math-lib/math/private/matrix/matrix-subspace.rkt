@@ -64,9 +64,7 @@
                                      ((Matrix Number) (-> A) -> (U A (Matrix Number))))))
 (define matrix-col-space 
   (case-lambda
-    [(M)  (matrix-col-space M (λ ()
-                                (define x00 (matrix-ref M 0 0))
-                                (make-array (vector 0 (matrix-num-cols M)) (zero* x00))))]
+    [(M)  (matrix-col-space M (λ () (make-matrix 0 (matrix-num-cols M))))]
     [(M fail)
      (define S (parameterize ([array-strictness #f])
                  (matrix-col-space/ns M)))

@@ -18,8 +18,8 @@
   
   (: ensure-matrix-dims (Symbol Any Any -> (Values Positive-Index Positive-Index)))
   (define (ensure-matrix-dims name m n)
-    (cond [(or (not (index? m)) (zero? m))  (raise-argument-error name "Positive-Index" 0 m n)]
-          [(or (not (index? n)) (zero? n))  (raise-argument-error name "Positive-Index" 1 m n)]
+    (cond [(not (index? m))  (raise-argument-error name "Index" 0 m n)]
+          [(not (index? n))  (raise-argument-error name "Index" 1 m n)]
           [else  (values m n)]))
   
   (define-syntax (base-for/matrix: stx)

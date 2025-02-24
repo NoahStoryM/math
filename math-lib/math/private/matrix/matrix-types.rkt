@@ -20,8 +20,7 @@
 
 (: matrix? (All (A) ((Array A) -> Boolean)))
 (define (matrix? arr)
-  (and (> (array-size arr) 0)
-       (= (array-dims arr) 2)))
+  (= (array-dims arr) 2))
 
 (: square-matrix? (All (A) ((Array A) -> Boolean)))
 (define (square-matrix? arr)
@@ -29,27 +28,24 @@
   (and (= (vector-length ds) 2)
        (let ([d0  (unsafe-vector-ref ds 0)]
              [d1  (unsafe-vector-ref ds 1)])
-         (and (> d0 0) (> d1 0) (= d0 d1)))))
+         (= d0 d1))))
 
 (: row-matrix? (All (A) ((Array A) -> Boolean)))
 (define (row-matrix? arr)
   (define ds (array-shape arr))
   (and (= (vector-length ds) 2)
-       (= (unsafe-vector-ref ds 0) 1)
-       (> (unsafe-vector-ref ds 1) 0)))
+       (= (unsafe-vector-ref ds 0) 1)))
 
 (: col-matrix? (All (A) ((Array A) -> Boolean)))
 (define (col-matrix? arr)
   (define ds (array-shape arr))
   (and (= (vector-length ds) 2)
-       (> (unsafe-vector-ref ds 0) 0)
-       (= (unsafe-vector-ref ds 1) 1)))
+       (> (unsafe-vector-ref ds 0) 0)))
 
 (: matrix-shape (All (A) ((Array A) -> (Values Index Index))))
 (define (matrix-shape a)
   (define ds (array-shape a))
-  (if (and (> (array-size a) 0)
-           (= (vector-length ds) 2))
+  (if (= (vector-length ds) 2)
       (values (unsafe-vector-ref ds 0)
               (unsafe-vector-ref ds 1))
       (raise-argument-error 'matrix-shape "matrix?" a)))

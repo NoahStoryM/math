@@ -24,39 +24,59 @@
 ;; ===================================================================================================
 ;; Basic constructors
 
-(: identity-matrix (All (A) (case-> (Integer -> (Matrix (U 1 0)))
+(: identity-matrix (All (A) (case-> (0 -> (Matrix Nothing))
+                                    (Integer -> (Matrix (U 1 0)))
                                     (Integer A -> (Matrix (U A 0)))
                                     (Integer A A -> (Matrix A)))))
 (define identity-matrix
   (case-lambda
-    [(m) (identity-matrix m 1 0)]
+    [(m) (if (zero? m) (make-matrix 0 0) (identity-matrix m 1 0))]
     [(m one) (identity-matrix m one 0)]
     [(m one zero)
-     (when (or (not (index? m)) (= m 0))
-       (raise-argument-error 'identity-matrix "Positive-Index" m))
+     (unless (index? m)
+       (raise-argument-error 'identity-matrix "Index" m))
      (diagonal-array 2 m one zero)]))
 
-(: make-matrix (All (A) (Integer Integer A -> (Matrix A))))
-(define (make-matrix m n x)
-  (when (or (not (index? m)) (= m 0))
-       (raise-argument-error 'make-matrix "Positive-Index" m))
-  (when (or (not (index? n)) (= n 0))
-       (raise-argument-error 'make-matrix "Positive-Index" n))
-  (make-array (vector m n) x))
+(: make-matrix (All (A) (case-> (Integer Integer -> (Matrix Nothing))
+                                (Integer Integer A -> (Matrix A)))))
+(define make-matrix
+  (case-lambda
+    [(m n)
+     (: ds In-Indexes)
+     (define ds (vector m n))
+     (unless (or (= m 0) (= n 0))
+       (raise-argument-error 'make-matrix "matrix shape contains at least one 0" ds))
+     (build-simple-array ds (λ ([js : Indexes])
+                              (error "this procedure should never be called")))]
+    [(m n x)
+     (unless (index? m)
+       (raise-argument-error 'make-matrix "Index" 0 m))
+     (unless (index? n)
+       (raise-argument-error 'make-matrix "Index" 1 n))
+     (make-array (vector m n) x)]))
 
-(: build-matrix (All (A) (Integer Integer (Index Index -> A) -> (Matrix A))))
-(define (build-matrix m n proc)
-  (cond [(or (not (index? m)) (= m 0))
-         (raise-argument-error 'build-matrix "Positive-Index" 0 m n proc)]
-        [(or (not (index? n)) (= n 0))
-         (raise-argument-error 'build-matrix "Positive-Index" 1 m n proc)]
-        [else
-         (array-default-strict
-          (unsafe-build-array
-           ((inst vector Index) m n)
-           (λ: ([js : Indexes])
-             (proc (unsafe-vector-ref js 0)
-                   (unsafe-vector-ref js 1)))))]))
+(: build-matrix (All (A) (case-> (Integer Integer -> (Matrix Nothing))
+                                 (Integer Integer (Index Index -> A) -> (Matrix A)))))
+(define build-matrix
+  (case-lambda
+    [(m n)
+     (: ds In-Indexes)
+     (define ds (vector m n))
+     (unless (or (= m 0) (= n 0))
+       (raise-argument-error 'build-matrix "matrix shape contains at least one 0" ds))
+     (build-array ds (λ ([js : Indexes])
+                       (error "this procedure should never be called")))]
+    [(m n proc)
+     (unless (index? m)
+       (raise-argument-error 'build-matrix "Index" 0 m n proc))
+     (unless (index? n)
+       (raise-argument-error 'build-matrix "Index" 1 m n proc))
+     (array-default-strict
+      (unsafe-build-array
+       ((inst vector Index) m n)
+       (λ: ([js : Indexes])
+         (proc (unsafe-vector-ref js 0)
+               (unsafe-vector-ref js 1)))))]))
 
 ;; ===================================================================================================
 ;; Diagonal matrices
@@ -64,7 +84,7 @@
 (: diagonal-matrix/zero (All (A) ((Listof A) A -> (Matrix A))))
 (define (diagonal-matrix/zero xs zero)
   (cond [(empty? xs)
-         (raise-argument-error 'diagonal-matrix "nonempty List" xs)]
+         (identity-matrix 0 zero zero)]
         [else
          (define vs (list->vector xs))
          (define m (vector-length vs))
@@ -89,12 +109,11 @@
 (define (block-diagonal-matrix/zero* as zero)
   (define num (vector-length as))
   (define-values (ms ns)
-    (let-values ([(ms ns)  (for/fold: ([ms : (Listof Index)  empty]
-                                       [ns : (Listof Index)  empty]
-                                       ) ([a  (in-vector as)])
-                             (define-values (m n) (matrix-shape a))
-                             (values (cons m ms) (cons n ns)))])
-      (values (reverse ms) (reverse ns))))
+    (for/foldr: ([ms : (Listof Index)  empty]
+                 [ns : (Listof Index)  empty]
+                 ) ([a  (in-vector as)])
+      (define-values (m n) (matrix-shape a))
+      (values (cons m ms) (cons n ns))))
   (define res-m (assert (apply + ms) index?))
   (define res-n (assert (apply + ns) index?))
   (define vs ((inst make-vector Index) res-m 0))
@@ -141,7 +160,7 @@
   (let ([as  (list->vector as)])
     (define num (vector-length as))
     (cond [(= num 0)
-           (raise-argument-error 'block-diagonal-matrix/zero "nonempty List" as)]
+           (identity-matrix 0 zero zero)]
           [(= num 1)
            (unsafe-vector-ref as 0)]
           [else
@@ -172,9 +191,6 @@
                               ((Listof Float-Complex) Integer -> (Matrix Float-Complex))
                               ((Listof Number) Integer -> (Matrix Number))))
 (define (vandermonde-matrix xs n)
-  (cond [(empty? xs)
-         (raise-argument-error 'vandermonde-matrix "nonempty List" 0 xs n)]
-        [(or (not (index? n)) (zero? n))
-         (raise-argument-error 'vandermonde-matrix "Positive-Index" 1 xs n)]
-        [else
-         (array-axis-expand (list->array xs) 1 n sane-expt)]))
+  (unless (index? n)
+    (raise-argument-error 'vandermonde-matrix "Index" 1 xs n))
+  (array-axis-expand (list->array xs) 1 n sane-expt))

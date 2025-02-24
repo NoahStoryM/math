@@ -446,14 +446,10 @@
   (case-lambda
     [(f M)  (matrix-stack (map f (matrix-rows M)))]
     [(f M fail)
-     (define ms (matrix-rows M))
-     (define n (f (first ms)))
-     (cond [n  (let loop ([ms  (rest ms)] [ns (list n)])
-                 (cond [(empty? ms)  (matrix-stack (reverse ns))]
-                       [else  (define n (f (first ms)))
-                              (cond [n  (loop (rest ms) (cons n ns))]
-                                    [else  (fail)])]))]
-           [else  (fail)])]))
+     (let loop ([ms (matrix-rows M)] [ns '()])
+       (cond [(empty? ms)  (if (empty? ns) M (matrix-stack (reverse ns)))]
+             [else  (define n (f (first ms)))
+                    (if n (loop (rest ms) (cons n ns)) (fail))]))]))
 
 (: matrix-map-cols
    (All (A B F) (case-> (((Matrix A) -> (Matrix B)) (Matrix A)        -> (Matrix B))
@@ -463,14 +459,10 @@
   (case-lambda
     [(f M)  (matrix-augment (map f (matrix-cols M)))]
     [(f M fail)
-     (define ms (matrix-cols M))
-     (define n (f (first ms)))
-     (cond [n  (let loop ([ms  (rest ms)] [ns (list n)])
-                 (cond [(empty? ms)  (matrix-augment (reverse ns))]
-                       [else  (define n (f (first ms)))
-                              (cond [n  (loop (rest ms) (cons n ns))]
-                                    [else  (fail)])]))]
-           [else  (fail)])]))
+     (let loop ([ms (matrix-cols M)] [ns '()])
+       (cond [(empty? ms)  (if (empty? ns) M (matrix-augment (reverse ns)))]
+             [else  (define n (f (first ms)))
+                    (if n (loop (rest ms) (cons n ns)) (fail))]))]))
 
 (: make-matrix-normalize (Real -> (case-> ((Matrix Flonum) -> (U #f (Matrix Flonum)))
                                           ((Matrix Real) -> (U #f (Matrix Real)))
@@ -496,7 +488,7 @@
   (case-lambda
     [(M)  (matrix-normalize-rows M 2)]
     [(M p)
-     (define (fail) (raise-argument-error 'matrix-normalize-rows "matrix? with nonzero rows" 0 M p))
+     (define (fail) (raise-argument-error 'matrix-normalize-rows "matrix?" 0 M p))
      (matrix-normalize-rows M p fail)]
     [(M p fail)
      (matrix-map-rows (make-matrix-normalize p) M fail)]))
@@ -518,8 +510,7 @@
   (case-lambda
     [(M)  (matrix-normalize-cols M 2)]
     [(M p)
-     (define (fail)
-       (raise-argument-error 'matrix-normalize-cols "matrix? with nonzero columns" 0 M p))
+     (define (fail) (raise-argument-error 'matrix-normalize-cols "matrix?" 0 M p))
      (matrix-normalize-cols M p fail)]
     [(M p fail)
      (matrix-map-cols (make-matrix-normalize p) M fail)]))

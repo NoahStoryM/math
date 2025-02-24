@@ -31,6 +31,7 @@
 (define (matrix-determinant M)
   (define m (square-matrix-size M))
   (cond
+    [(= m 0)  1]
     [(= m 1)  (matrix-ref M 0 0)]
     [(= m 2)  (match-define (vector a b c d)
                 (mutable-array-data (array->mutable-array M)))
@@ -62,8 +63,7 @@
             (elim-rows! rows m i i pivot (fx+ i 1))  ; adding scaled rows doesn't change it
             (loop (fx+ i 1) sign))])]
       [else
-       (define prod (unsafe-vector2d-ref rows 0 0))
-       (let loop ([#{i : Nonnegative-Fixnum} 1] [prod prod])
+       (let loop ([#{i : Nonnegative-Fixnum} 0] [prod 1])
          (cond [(i . fx< . m)
                 (loop (fx+ i 1) (* prod (unsafe-vector2d-ref rows i i)))]
                [else  (* prod sign)]))])))
@@ -89,13 +89,15 @@
     [(M)  (matrix-inverse M (λ () (raise-argument-error 'matrix-inverse "matrix-invertible?" M)))]
     [(M fail)
      (define m (square-matrix-size M))
-     (define x00 (matrix-ref M 0 0))
-     (define I (identity-matrix m (one* x00) (zero* x00)))
-     (define-values (IM^-1 wps) (parameterize ([array-strictness #f])
-                                  (matrix-gauss-elim (matrix-augment (list M I)) #t #t)))
-     (cond [(and (not (empty? wps)) (= (first wps) m))
-            (submatrix IM^-1 (::) (:: m #f))]
-           [else  (fail)])]))
+     (cond [(zero? m) M]
+           [else
+            (define x00 (matrix-ref M 0 0))
+            (define I (identity-matrix m (one* x00) (zero* x00)))
+            (define-values (IM^-1 wps) (parameterize ([array-strictness #f])
+                                         (matrix-gauss-elim (matrix-augment (list M I)) #t #t)))
+            (cond [(and (not (empty? wps)) (= (first wps) m))
+                   (submatrix IM^-1 (::) (:: m #f))]
+                  [else  (fail)])])]))
 
 ;; ===================================================================================================
 ;; Solving linear systems
@@ -116,13 +118,14 @@
     [(M B fail)
      (define m (square-matrix-size M))
      (define-values (s t) (matrix-shape B))
-     (cond [(= m s)
-            (define-values (IX wps) (parameterize ([array-strictness #f])
-                                      (matrix-gauss-elim (matrix-augment (list M B)) #t #t)))
-            (cond [(and (not (empty? wps)) (= (first wps) m))
-                   (submatrix IX (::) (:: m #f))]
-                  [else  (fail)])]
-           [else
-            (error 'matrix-solve
-                   "matrices must have the same number of rows; given ~e and ~e"
-                   M B)])]))
+     (if (= m s)
+         (cond [(or (= s 0) (= t 0)) B]
+               [else
+                (define-values (IX wps) (parameterize ([array-strictness #f])
+                                          (matrix-gauss-elim (matrix-augment (list M B)) #t #t)))
+                (cond [(and (not (empty? wps)) (= (first wps) m))
+                       (submatrix IX (::) (:: m #f))]
+                      [else  (fail)])])
+         (error 'matrix-solve
+                "matrices must have the same number of rows; given ~e and ~e"
+                M B))]))

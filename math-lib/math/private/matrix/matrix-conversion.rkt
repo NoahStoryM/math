@@ -32,10 +32,10 @@
 
 (: list->matrix (All (A) (Integer Integer (Listof A) -> (Matrix A))))
 (define (list->matrix m n xs)
-  (cond [(or (not (index? m)) (= m 0))
-         (raise-argument-error 'list->matrix "Positive-Index" 0 m n xs)]
-        [(or (not (index? n)) (= n 0))
-         (raise-argument-error 'list->matrix "Positive-Index" 1 m n xs)]
+  (cond [(not (index? m))
+         (raise-argument-error 'list->matrix "Index" 0 m n xs)]
+        [(not (index? n))
+         (raise-argument-error 'list->matrix "Index" 1 m n xs)]
         [else  (list->array (vector m n) xs)]))
 
 (: matrix->list (All (A) ((Matrix A) -> (Listof A))))
@@ -44,10 +44,10 @@
 
 (: vector->matrix (All (A) (Integer Integer (Vectorof A) -> (Mutable-Array A))))
 (define (vector->matrix m n v)
-  (cond [(or (not (index? m)) (= m 0))
-         (raise-argument-error 'vector->matrix "Positive-Index" 0 m n v)]
-        [(or (not (index? n)) (= n 0))
-         (raise-argument-error 'vector->matrix "Positive-Index" 1 m n v)]
+  (cond [(not (index? m))
+         (raise-argument-error 'vector->matrix "Index" 0 m n v)]
+        [(not (index? n))
+         (raise-argument-error 'vector->matrix "Index" 1 m n v)]
         [else  (vector->array (vector m n) v)]))
 
 (: matrix->vector (All (A) ((Matrix A) -> (Vectorof A))))
@@ -59,14 +59,12 @@
 
 (: list->col-matrix (All (A) ((Listof A) -> (Matrix A))))
 (define (list->col-matrix xs)
-  (cond [(empty? xs)  (raise-argument-error 'list->col-matrix "nonempty List" xs)]
-        [else  (list->array ((inst vector Index) (length xs) 1) xs)]))
+  (list->array ((inst vector Index) (length xs) 1) xs))
 
 (: vector->col-matrix (All (A) ((Vectorof A) -> (Mutable-Array A))))
 (define (vector->col-matrix xs)
   (define n (vector-length xs))
-  (cond [(zero? n)  (raise-argument-error 'vector->col-matrix "nonempty Vector" xs)]
-        [else  (vector->array ((inst vector Index) n 1) xs)]))
+  (vector->array ((inst vector Index) n 1) xs))
 
 (: find-nontrivial-axis ((Vectorof Index) -> (Values Index Index)))
 (define (find-nontrivial-axis ds)
@@ -78,14 +76,10 @@
 
 (: array->col-matrix (All (A) ((Array A) -> (Matrix A))))
 (define (array->col-matrix arr)
-  (define (fail)
-    (raise-argument-error 'array->col-matrix
-                          "nonempty Array with exactly one axis of length >= 1" arr))
   (define ds (array-shape arr))
   (define dims (vector-length ds))
   (define num-ones (vector-count (λ: ([d : Index]) (= d 1)) ds))
-  (cond [(zero? (array-size arr))  (fail)]
-        [(= num-ones dims)
+  (cond [(= num-ones dims)
          (define: js : (Vectorof Index) (make-vector dims 0))
          (define proc (unsafe-array-proc arr))
          (array-default-strict
@@ -101,7 +95,9 @@
                                 (let ([js  (js)])
                                   (unsafe-vector-set! js k (unsafe-vector-ref ij 0))
                                   (proc js)))))]
-        [else  (fail)]))
+        [else
+         (raise-argument-error 'array->col-matrix
+                               "Array with at most one axis of length >= 1" arr)]))
 
 (: ->col-matrix (All (A) ((U (Listof A) (Vectorof A) (Array A)) -> (Matrix A))))
 (define (->col-matrix xs)
@@ -123,36 +119,35 @@
 (: list*-shape (All (A) (Listof (Listof A)) (-> Nothing) -> (Values Positive-Index Positive-Index)))
 (define (list*-shape xss fail)
   (define m (length xss))
-  (cond [(m . > . 0)
+  (cond [(m . = . 0)
+         (values 0 0)]
+        [else
          (define n (length (first xss)))
-         (cond [(and (n . > . 0) (andmap (λ: ([xs : (Listof A)]) (= n (length xs))) (rest xss)))
+         (cond [(andmap (λ: ([xs : (Listof A)]) (= n (length xs))) (rest xss))
                 (values m n)]
-               [else  (fail)])]
-        [else  (fail)]))
+               [else  (fail)])]))
 
 (: vector*-shape (All (A) (Vectorof (Vectorof A)) (-> Nothing)
                       -> (Values Positive-Index Positive-Index)))
 (define (vector*-shape xss fail)
   (define m (vector-length xss))
-  (cond [(m . > . 0)
+  (cond [(m . = . 0)
+         (values 0 0)]
+        [else
          (define ns ((inst vector-map Index (Vectorof A)) vector-length xss))
          (define n (vector-length (unsafe-vector-ref xss 0)))
-         (cond [(and (n . > . 0)
-                     (let: loop : Boolean ([i : Nonnegative-Fixnum  1])
-                       (cond [(i . fx< . m)
-                              (if (= n (vector-length (unsafe-vector-ref xss i)))
-                                  (loop (fx+ i 1))
-                                  #f)]
-                             [else  #t])))
+         (cond [(let: loop : Boolean ([i : Nonnegative-Fixnum  1])
+                  (or (i . fx>= . m)
+                      (and (= n (vector-length (unsafe-vector-ref xss i)))
+                           (loop (fx+ i 1)))))
                 (values m n)]
-               [else  (fail)])]
-        [else  (fail)]))
+               [else  (fail)])]))
 
 (: list*->matrix (All (A) (Listof (Listof A)) -> (Matrix A)))
 (define (list*->matrix xss)
   (define (fail)
     (raise-argument-error 'list*->matrix
-                          "nested lists with rectangular shape and at least one matrix element"
+                          "nested lists with rectangular shape"
                           xss))
   (define-values (m n) (list*-shape xss fail))
   (list->array ((inst vector Index) m n) (apply append xss)))
@@ -167,7 +162,7 @@
 (define (vector*->matrix xss)
   (define (fail)
     (raise-argument-error 'vector*->matrix
-                          "nested vectors with rectangular shape and at least one matrix element"
+                          "nested vectors with rectangular shape"
                           xss))
   (define-values (m n) (vector*-shape xss fail))
   (vector->matrix m n (apply vector-append (vector->list xss))))

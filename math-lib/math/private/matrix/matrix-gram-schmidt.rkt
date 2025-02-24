@@ -67,9 +67,7 @@
                  [else
                   (matrix-transpose (vector*->matrix (list->vector (reverse bs))))]))]
         [else
-         (make-array (vector (matrix-num-rows M) 0)
-                     ;; Value won't be in the matrix, but this satisfies TR:
-                     (zero* (unsafe-vector2d-ref rows 0 0)))]))
+         (make-matrix (matrix-num-rows M) 0)]))
 
 (: matrix-gram-schmidt (case-> ((Matrix Flonum)             -> (Array Flonum))
                                ((Matrix Flonum) Any         -> (Array Flonum))
@@ -92,17 +90,19 @@
                                      ((Matrix Number) -> (Array Number))))
 (define (matrix-basis-extension/ns B)
   (define-values (m n) (matrix-shape B))
-  (define x00 (matrix-ref B 0 0))
-  (define zero (zero* x00))
-  (define one (one* x00))
-  (cond [(n . < . m)
+  (cond [(n . = . 0)
+         (identity-matrix m)]
+        [(n . < . m)
+         (define x00 (matrix-ref B 0 0))
+         (define zero (zero* x00))
+         (define one (one* x00))
          (define S (matrix-gram-schmidt (matrix-augment (list B (identity-matrix m one zero))) #f n))
          (define R (submatrix S (::) (:: n #f)))
          (matrix-augment (take (sort/key (matrix-cols R) > matrix-norm) (- m n)))]
         [(n . = . m)
-         (make-array (vector m 0) zero)]
+         (make-matrix m 0)]
         [else
-         (raise-argument-error 'matrix-extend-row-basis "matrix? with width < height" B)]))
+         (raise-argument-error 'matrix-basis-extension "matrix? with width < height" B)]))
 
 (: matrix-basis-extension (case-> ((Matrix Flonum) -> (Array Flonum))
                                   ((Matrix Real) -> (Array Real))

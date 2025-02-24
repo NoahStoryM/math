@@ -59,10 +59,8 @@
       (make-matrix-multiply
        m p n
        (λ: ([i : Index] [j : Index])
-         (let ([bx  (bx)]
-               [v  (* (unsafe-vector-ref arr-data i)
-                      (unsafe-vector-ref brr-data j))])
-           (let: loop ([k : Nonnegative-Fixnum  1] [v v])
+         (let ([bx  (bx)])
+           (let: loop ([k : Nonnegative-Fixnum  0] [v 0])
              (cond [(k . fx< . p)
                     (loop (fx+ k 1)
                           (+ v (* (unsafe-vector-ref arr-data (fx+ i k))
